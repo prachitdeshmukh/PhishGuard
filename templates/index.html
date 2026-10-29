@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PhishGuard — AI Phishing URL Detector</title>
+<meta name="description" content="Instantly detect phishing URLs with PhishGuard's AI-powered scanner."/>
+<style>
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  background:#060818;
+  color:#e8eaf6;
+  min-height:100vh;
+  overflow-x:hidden;
+  line-height:1.6;
+}
+/* ═══════════════════════════════════════════
+   ANIMATED BACKGROUND
+═══════════════════════════════════════════ */
+.bg-wrap{
+  position:fixed;inset:0;z-index:0;
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 80% 60% at 20% 10%, rgba(109,40,217,0.18) 0%, transparent 60%),
+             radial-gradient(ellipse 60% 50% at 80% 80%, rgba(6,182,212,0.12) 0%, transparent 60%),
+             radial-gradient(ellipse 40% 40% at 60% 30%, rgba(139,92,246,0.1) 0%, transparent 60%),
+             #060818;
+}
+.grid-overlay{
+  position:fixed;inset:0;z-index:0;
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(139,92,246,0.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(139,92,246,0.06) 1px,transparent 1px);
+  background-size:50px 50px;
+}
+.noise{
+  position:fixed;inset:0;z-index:0;opacity:.03;
+  position:fixed;inset:0;z-index:0;opacity:.03;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+#particles{position:fixed;inset:0;z-index:0;pointer-events:none}
+.particle{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:0;
+  animation:drift linear infinite;
+}
+@keyframes drift{
+  0%  {transform:translateY(100vh) rotate(0deg);opacity:0}
+  10% {opacity:1}
+  90% {opacity:1}
+  100%{transform:translateY(-100px) rotate(720deg);opacity:0}
+}
+/* ═══════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════ */
+.layout{position:relative;z-index:1}
+/* ═══════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════ */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 48px;
+  border-bottom:1px solid rgba(139,92,246,0.15);
+  background:rgba(6,8,24,0.8);
+  backdrop-filter:blur(24px);
+  position:sticky;top:0;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-shield{
+  width:40px;height:40px;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 24px rgba(124,58,237,0.5);
+  flex-shrink:0;
+}
+.logo-text{font-size:1.3rem;font-weight:800;letter-spacing:-0.03em}
+.logo-text span{
+  background:linear-gradient(135deg,#a78bfa,#38bdf8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent
+}
+.live-badge{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 16px;
+  border:1px solid rgba(34,197,94,0.35);
+  border-radius:100px;
+  font-size:0.78rem;font-weight:600;
+  color:#4ade80;
+  background:rgba(34,197,94,0.08);
+}
+.pulse{
+  width:8px;height:8px;border-radius:50%;
+  background:#4ade80;
+  box-shadow:0 0 8px #4ade80;
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:0.5}}
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero{
+  text-align:center;
+  padding:80px 24px 60px;
+  max-width:900px;margin:0 auto;
+}
+.hero-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:8px 18px;
+  border:1px solid rgba(139,92,246,0.4);
+  border-radius:100px;
+  background:rgba(139,92,246,0.1);
+  font-size:0.82rem;font-weight:600;
+  color:#a78bfa;
+  margin-bottom:28px;
+  letter-spacing:0.04em;
+}
+.hero-title{
+  font-size:clamp(2.4rem,6vw,4.2rem);
+  font-weight:900;
+  letter-spacing:-0.05em;
+  line-height:1.05;
+  margin-bottom:24px;
+}
+.hero-title .line2{
+  background:linear-gradient(135deg,#818cf8 0%,#a78bfa 40%,#38bdf8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  display:block;
+}
+.hero-sub{
+  font-size:1.05rem;
+  color:#94a3b8;
+  max-width:520px;
+  margin:0 auto 48px;
+  line-height:1.7;
+}
+/* ═══════════════════════════════════════════
+   SCANNER
+═══════════════════════════════════════════ */
+.scanner-wrap{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(139,92,246,0.2);
+  border-radius:24px;
+  padding:28px;
+  backdrop-filter:blur(20px);
+  box-shadow:0 0 60px rgba(124,58,237,0.1),inset 0 1px 0 rgba(255,255,255,0.06);
+  transition:border-color 0.3s,box-shadow 0.3s;
+  max-width:760px;margin:0 auto;
+}
+.scanner-wrap:focus-within{
+  border-color:rgba(139,92,246,0.5);
+  box-shadow:0 0 80px rgba(124,58,237,0.2),inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.input-row{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(0,0,0,0.35);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:16px;
+  padding:8px 8px 8px 20px;
+  transition:border-color 0.2s;
+}
+.input-row:focus-within{border-color:rgba(139,92,246,0.5)}
+.link-icon{color:#64748b;flex-shrink:0}
+#url-input{
+  flex:1;min-width:0;
+  background:transparent;border:none;outline:none;
+  font-size:0.95rem;
+  font-family:'Courier New',monospace;
+  color:#e2e8f0;
+  padding:10px 0;
+}
+#url-input::placeholder{color:#475569;font-family:inherit}
+#scan-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:13px 26px;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+  border:none;border-radius:12px;
+  color:#fff;font-size:0.9rem;font-weight:700;
+  font-family:inherit;
+  cursor:pointer;flex-shrink:0;
+  transition:transform 0.2s,box-shadow 0.2s,opacity 0.2s;
+  box-shadow:0 4px 24px rgba(124,58,237,0.45);
+}
+#scan-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(124,58,237,0.6)}
+#scan-btn:active{transform:translateY(0)}
+#scan-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.btn-spinner{
+  width:18px;height:18px;
+  border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chips{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip-label{font-size:0.78rem;color:#475569}
+.chip{
+  padding:4px 14px;border-radius:100px;
+  font-size:0.76rem;font-family:'Courier New',monospace;
+  cursor:pointer;border:1px solid transparent;
+  transition:transform 0.2s,box-shadow 0.2s;
+}
+.chip:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+.chip-safe{background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#4ade80}
+.chip-danger{background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171}
+/* ═══════════════════════════════════════════
+   RESULTS
+═══════════════════════════════════════════ */
+.results{
+  max-width:900px;margin:40px auto 80px;
+  padding:0 24px;
+  animation:slide-up 0.5s ease;
+}
+@keyframes slide-up{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
+/* ── Verdict ── */
+.verdict-card{
+  border-radius:20px;
+  padding:32px 36px;
+  display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+  margin-bottom:20px;
+  border:1px solid transparent;
+  position:relative;overflow:hidden;
+}
+.verdict-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.04),transparent);
+}
+.verdict-card.v-safe  {border-color:rgba(34,197,94,0.35); background:rgba(34,197,94,0.07)}
+.verdict-card.v-low   {border-color:rgba(250,204,21,0.35); background:rgba(250,204,21,0.07)}
+.verdict-card.v-medium{border-color:rgba(249,115,22,0.35); background:rgba(249,115,22,0.07)}
+.verdict-card.v-high  {border-color:rgba(239,68,68,0.40);  background:rgba(239,68,68,0.08)}
+.v-emoji{
+  font-size:3.2rem;flex-shrink:0;
+  filter:drop-shadow(0 0 12px currentColor);
+}
+.v-text{flex:1;min-width:0}
+.v-label{font-size:1.5rem;font-weight:900;letter-spacing:-0.03em;margin-bottom:6px}
+.v-label.c-safe  {color:#4ade80}
+.v-label.c-low   {color:#fde047}
+.v-label.c-medium{color:#fb923c}
+.v-label.c-high  {color:#f87171}
+.v-url{
+  font-family:'Courier New',monospace;
+  font-size:0.78rem;color:#64748b;
+  word-break:break-all;
+  background:rgba(0,0,0,0.3);
+  padding:6px 12px;border-radius:8px;
+  display:inline-block;margin-top:4px;
+  border:1px solid rgba(255,255,255,0.06);
+}
+/* Risk meter */
+.meter-block{min-width:130px;text-align:center}
+.meter-title{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:#475569;margin-bottom:10px}
+.meter-track{
+  width:100%;height:10px;
+  background:rgba(255,255,255,0.07);
+  border-radius:100px;overflow:hidden;
+  border:1px solid rgba(255,255,255,0.05);
+}
+.meter-fill{
+  height:100%;border-radius:100px;width:0%;
+  transition:width 1.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.meter-score{font-size:1.4rem;font-weight:800;margin-top:8px}
+/* ── Stats Grid ── */
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:14px;margin-bottom:20px;
+}
+.stat-box{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:16px;padding:20px;text-align:center;
+  backdrop-filter:blur(10px);
+  transition:border-color 0.2s,transform 0.2s,background 0.2s;
+}
+.stat-box:hover{border-color:rgba(139,92,246,0.35);transform:translateY(-3px);background:rgba(255,255,255,0.05)}
+.stat-emo{font-size:1.6rem;margin-bottom:8px}
+.stat-num{font-size:1.8rem;font-weight:900;letter-spacing:-0.03em;margin-bottom:4px}
+.stat-lbl{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:#475569}
+.col-safe  {color:#4ade80}
+.col-warn  {color:#fde047}
+.col-danger{color:#f87171}
+.col-norm  {color:#e2e8f0}
+/* ── Findings ── */
+.findings-panel{
+  background:rgba(255,255,255,0.025);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:20px;padding:28px;
+  backdrop-filter:blur(16px);
+  margin-bottom:20px;
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.panel-title{
+  display:flex;align-items:center;gap:10px;
+  font-size:1rem;font-weight:700;color:#e2e8f0;
+}
+.count-badge{
+  padding:4px 12px;border-radius:100px;
+  background:rgba(139,92,246,0.15);
+  color:#a78bfa;font-size:0.75rem;font-weight:700;
+}
+.findings-list{list-style:none;display:flex;flex-direction:column;gap:10px}
+.finding{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:14px 18px;border-radius:12px;
+  border:1px solid transparent;
+  animation:find-in 0.4s ease both;
+}
+@keyframes find-in{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.finding.f-safe  {background:rgba(34,197,94,0.07); border-color:rgba(34,197,94,0.2)}
+.finding.f-warning{background:rgba(250,204,21,0.07);border-color:rgba(250,204,21,0.2)}
+.finding.f-danger{background:rgba(239,68,68,0.08); border-color:rgba(239,68,68,0.2)}
+.f-dot{
+  width:24px;height:24px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.7rem;font-weight:900;flex-shrink:0;margin-top:1px;
+}
+.finding.f-safe   .f-dot{background:#22c55e;color:#fff}
+.finding.f-warning .f-dot{background:#eab308;color:#fff}
+.finding.f-danger .f-dot{background:#ef4444;color:#fff}
+.f-msg{font-size:0.88rem;line-height:1.55;color:#cbd5e1}
+/* ── Recommendation ── */
+.rec-box{
+  border-radius:16px;padding:20px 24px;
+  font-size:0.9rem;font-weight:500;line-height:1.65;
+  border:1px solid transparent;
+}
+.rec-safe  {background:rgba(34,197,94,0.08); border-color:rgba(34,197,94,0.3); color:#86efac}
+.rec-low   {background:rgba(250,204,21,0.08);border-color:rgba(250,204,21,0.3);color:#fde68a}
+.rec-medium{background:rgba(249,115,22,0.08);border-color:rgba(249,115,22,0.3);color:#fdba74}
+.rec-high  {background:rgba(239,68,68,0.09); border-color:rgba(239,68,68,0.35);color:#fca5a5}
+/* ═══════════════════════════════════════════
+   HOW IT WORKS / FEATURES
+═══════════════════════════════════════════ */
+.features{
+  max-width:900px;margin:0 auto 100px;
+  padding:0 24px;
+}
+.sec-title{
+  text-align:center;font-size:1.6rem;font-weight:900;
+  letter-spacing:-0.03em;margin-bottom:32px;
+  background:linear-gradient(135deg,#e2e8f0,#94a3b8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.feat-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:14px;
+}
+.feat-card{
+  background:rgba(255,255,255,0.025);
+  border:1px solid rgba(255,255,255,0.07);
+  border-radius:16px;padding:24px;
+  transition:border-color 0.25s,transform 0.25s,background 0.25s;
+  cursor:default;
+}
+.feat-card:hover{
+  border-color:rgba(139,92,246,0.4);
+  background:rgba(139,92,246,0.06);
+  transform:translateY(-4px);
+}
+.feat-icon{font-size:1.8rem;margin-bottom:12px}
+.feat-name{font-size:0.9rem;font-weight:700;color:#e2e8f0;margin-bottom:6px}
+.feat-desc{font-size:0.8rem;color:#64748b;line-height:1.6}
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+.footer{
+  text-align:center;padding:28px;
+  border-top:1px solid rgba(255,255,255,0.06);
+  font-size:0.78rem;color:#334155;
+  position:relative;z-index:1;
+}
+/* ═══════════════════════════════════════════
+   UTILITIES
+═══════════════════════════════════════════ */
+.hidden{display:none!important}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(139,92,246,0.3);border-radius:3px}
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+.toast{
+  position:fixed;bottom:32px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  opacity:0;
+  padding:12px 24px;border-radius:100px;
+  font-size:0.85rem;font-weight:500;
+  backdrop-filter:blur(20px);
+  z-index:9999;
+  transition:transform 0.3s ease,opacity 0.3s ease;
+  font-family:inherit;
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-danger{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171}
+.toast-info  {background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.4);color:#c4b5fd}
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media(max-width:640px){
+  .header{padding:16px 20px}
+  .hero{padding:48px 20px 40px}
+  .input-row{flex-direction:column;align-items:stretch;padding:12px}
+  #scan-btn{justify-content:center}
+  .verdict-card{flex-direction:column;text-align:center}
+  .meter-block{width:100%}
+  .meter-track{height:12px}
+}
+</style>
+</head>
+<body>
+<!-- ── Background layers ── -->
+<div class="bg-wrap"></div>
+<div class="grid-overlay"></div>
+<div class="noise"></div>
+<div id="particles"></div>
+<div class="layout">
+<!-- ════════ HEADER ════════ -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-shield">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L3 7V12C3 16.55 6.84 20.74 12 22C17.16 20.74 21 16.55 21 12V7L12 2Z" fill="rgba(255,255,255,0.9)" stroke="rgba(255,255,255,0.3)" stroke-width="0.5"/>
+        <path d="M9 12L11 14L15 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <span class="logo-text">Phish<span>Guard</span></span>
+  </div>
+  <div class="live-badge">
+    <span class="pulse"></span>
+    Live Scanner
+  </div>
+</header>
+<!-- ════════ HERO ════════ -->
+<section class="hero">
+  <div class="hero-pill">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    AI-Powered Detection Engine
+  </div>
+  <h1 class="hero-title">
+    Detect Phishing URLs
+    <span class="line2">Before They Strike</span>
+  </h1>
+  <p class="hero-sub">
+    Paste any suspicious link below. Our engine runs 14 security checks
+    in real-time and tells you if it's safe or a phishing trap.
+  </p>
+  <!-- Scanner -->
+  <div class="scanner-wrap">
+    <div class="input-row">
+      <span class="link-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="#64748b" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <input id="url-input" type="text"
+        placeholder="Paste any URL here... e.g. https://example.com"
+        autocomplete="off" spellcheck="false"/>
+      <button id="scan-btn" onclick="scanURL()">
+        <span id="btn-label">Scan URL</span>
+        <span id="btn-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span id="btn-spin" class="btn-spinner hidden"></span>
+      </button>
+    </div>
+    <div class="chips">
+      <span class="chip-label">Try:</span>
+      <button class="chip chip-safe" onclick="setExample('https://www.google.com')">✅ google.com</button>
+      <button class="chip chip-danger" onclick="setExample('http://paypa1-secure-login.tk/account/verify?user=you')">☠️ Phishing example</button>
+      <button class="chip chip-danger" onclick="setExample('http://192.168.1.1/secure/login')">🔢 IP-based URL</button>
+      <button class="chip chip-danger" onclick="setExample('http://bit.ly/3xRe7aQ')">🔗 URL shortener</button>
+    </div>
+  </div>
+</section>
+<!-- ════════ RESULTS ════════ -->
+<section id="results" class="results hidden">
+  <!-- Verdict -->
+  <div id="verdict-card" class="verdict-card">
+    <div id="v-emoji" class="v-emoji"></div>
+    <div class="v-text">
+      <div id="v-label" class="v-label"></div>
+      <div id="v-url" class="v-url"></div>
+    </div>
+    <div class="meter-block">
+      <div class="meter-title">Risk Score</div>
+      <div class="meter-track">
+        <div id="meter-fill" class="meter-fill"></div>
+      </div>
+      <div id="meter-score" class="meter-score"></div>
+    </div>
+  </div>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-box">
+      <div class="stat-emo">📏</div>
+      <div id="s-len" class="stat-num col-norm">—</div>
+      <div class="stat-lbl">URL Length</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-emo">🎲</div>
+      <div id="s-ent" class="stat-num col-norm">—</div>
+      <div class="stat-lbl">Entropy</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-emo">🌐</div>
+      <div id="s-sub" class="stat-num col-norm">—</div>
+      <div class="stat-lbl">Subdomains</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-emo">🔑</div>
+      <div id="s-kw" class="stat-num col-norm">—</div>
+      <div class="stat-lbl">Keyword Hits</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-emo">➖</div>
+      <div id="s-hyp" class="stat-num col-norm">—</div>
+      <div class="stat-lbl">Hyphens</div>
+    </div>
+  </div>
+  <!-- Findings -->
+  <div class="findings-panel">
+    <div class="panel-head">
+      <div class="panel-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="8" stroke="#94a3b8" stroke-width="2"/>
+          <path d="M21 21L16.65 16.65" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Security Analysis Findings
+      </div>
+      <div id="count-badge" class="count-badge"></div>
+    </div>
+    <ul id="findings-list" class="findings-list"></ul>
+  </div>
+  <!-- Recommendation -->
+  <div id="rec-box" class="rec-box"></div>
+</section>
+<!-- ════════ FEATURES ════════ -->
+<section class="features">
+  <h2 class="sec-title">What We Analyze</h2>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon">🔒</div>
+      <div class="feat-name">HTTPS & SSL</div>
+      <div class="feat-desc">Checks for encrypted connection and validates SSL certificate expiry in real-time</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🌐</div>
+      <div class="feat-name">Domain Intelligence</div>
+      <div class="feat-desc">Flags suspicious TLDs, IP-based URLs, excessive subdomains, and hyphen patterns</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🎭</div>
+      <div class="feat-name">Brand Impersonation</div>
+      <div class="feat-desc">Detects spoofing of 22+ trusted brands including Google, PayPal, Apple, Microsoft</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🧮</div>
+      <div class="feat-name">Entropy Analysis</div>
+      <div class="feat-desc">Shannon entropy calculation to detect algorithmically-generated phishing domains</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📝</div>
+      <div class="feat-name">Keyword Matching</div>
+      <div class="feat-desc">Scans for 50+ phishing-related keywords embedded in the URL structure</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔗</div>
+      <div class="feat-name">Shortener Detection</div>
+      <div class="feat-desc">Identifies URL shorteners (bit.ly, tinyurl) that hide the true destination</div>
+    </div>
+  </div>
+</section>
+<!-- ════════ FOOTER ════════ -->
+<footer class="footer">
+  PhishGuard &nbsp;•&nbsp; Python + Flask Backend &nbsp;•&nbsp; For educational & security research purposes
+</footer>
+</div><!-- /layout -->
+<script>
+'use strict';
+/* ── Particles ── */
+(function(){
+  const wrap = document.getElementById('particles');
+  const colors = ['rgba(139,92,246,0.6)','rgba(99,102,241,0.5)','rgba(56,189,248,0.4)','rgba(168,85,247,0.5)'];
+  for(let i=0;i<18;i++){
+    const d = document.createElement('div');
+    const size = Math.random()*4+2;
+    d.className='particle';
+    d.style.cssText=`
+      width:${size}px;height:${size}px;
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${Math.random()*20+15}s;
+      animation-delay:${Math.random()*20}s;
+      box-shadow:0 0 ${size*3}px ${colors[Math.floor(Math.random()*colors.length)]};
+    `;
+    wrap.appendChild(d);
+  }
+})();
+/* ── DOM ── */
+const urlInput  = document.getElementById('url-input');
+const scanBtn   = document.getElementById('scan-btn');
+const btnLabel  = document.getElementById('btn-label');
+const btnIcon   = document.getElementById('btn-icon');
+const btnSpin   = document.getElementById('btn-spin');
+urlInput.addEventListener('keydown', e => { if(e.key==='Enter') scanURL(); });
+function setExample(url){ urlInput.value=url; scanURL(); }
+function setLoading(on){
+  scanBtn.disabled=on;
+  btnLabel.textContent = on ? 'Scanning…' : 'Scan URL';
+  btnIcon.classList.toggle('hidden', on);
+  btnSpin.classList.toggle('hidden', !on);
+}
+async function scanURL(){
+  const raw = urlInput.value.trim();
+  if(!raw){ shake(urlInput); return; }
+  setLoading(true);
+  document.getElementById('results').classList.add('hidden');
+  try {
+    const res = await fetch('/api/check',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url:raw})
+    });
+    if(!res.ok) throw new Error('Server error '+res.status);
+    const data = await res.json();
+    if(data.error){ toast(data.error,'danger'); return; }
+    render(data);
+  } catch(err){
+    console.error(err);
+    toast('Cannot reach server — is Flask running on port 5050?','danger');
+  } finally { setLoading(false); }
+}
+function render(d){
+  const {score,risk_level,verdict,findings,stats,url} = d;
+  /* Verdict card */
+  const card = document.getElementById('verdict-card');
+  card.className = 'verdict-card v-'+risk_level;
+  const emojiMap = {safe:'✅',low:'⚠️',medium:'🚨',high:'☠️'};
+  document.getElementById('v-emoji').textContent = emojiMap[risk_level]||'❓';
+  const lbl = document.getElementById('v-label');
+  lbl.textContent = verdict;
+  lbl.className = 'v-label c-'+risk_level;
+  document.getElementById('v-url').textContent = url;
+  /* Meter */
+  const meterColors = {
+    safe:  'linear-gradient(90deg,#22c55e,#16a34a)',
+    low:   'linear-gradient(90deg,#eab308,#ca8a04)',
+    medium:'linear-gradient(90deg,#f97316,#ea580c)',
+    high:  'linear-gradient(90deg,#ef4444,#b91c1c)'
+  };
+  const fill = document.getElementById('meter-fill');
+  fill.style.background = meterColors[risk_level];
+  setTimeout(()=>{ fill.style.width = Math.min(score,100)+'%'; },80);
+  const ms = document.getElementById('meter-score');
+  ms.textContent = score+'/100';
+  ms.className = 'meter-score c-'+risk_level;
+  /* Stats */
+  setStat('s-len', stats.url_length,
+    stats.url_length>150?'danger':stats.url_length>75?'warn':'safe');
+  setStat('s-ent', stats.entropy,
+    stats.entropy>3.8?'warn':'safe');
+  setStat('s-sub', stats.subdomain_count,
+    stats.subdomain_count>=3?'danger':stats.subdomain_count>=2?'warn':'safe');
+  setStat('s-kw',  stats.keyword_hits,
+    stats.keyword_hits>=3?'danger':stats.keyword_hits>=1?'warn':'safe');
+  setStat('s-hyp', stats.hyphen_count,
+    stats.hyphen_count>=3?'danger':stats.hyphen_count>=1?'warn':'safe');
+  /* Findings */
+  const list = document.getElementById('findings-list');
+  list.innerHTML='';
+  const icons={safe:'✓',warning:'!',danger:'✕'};
+  findings.forEach((f,i)=>{
+    const li = document.createElement('li');
+    li.className = 'finding f-'+f.type;
+    li.style.animationDelay = (i*0.055)+'s';
+    li.innerHTML = `
+      <div class="f-dot">${icons[f.type]||'?'}</div>
+      <div class="f-msg">${esc(f.message)}</div>`;
+    list.appendChild(li);
+  });
+  document.getElementById('count-badge').textContent = findings.length+' checks';
+  /* Recommendation */
+  const recMap = {
+    safe:  {cls:'rec-safe',  msg:'✅ This URL appears safe. Always double-check the domain before entering any personal information.'},
+    low:   {cls:'rec-low',   msg:'⚠️ Low risk, but proceed carefully. Do not enter passwords or payment details unless you are 100% certain this site is legitimate.'},
+    medium:{cls:'rec-medium',msg:'🚨 Multiple suspicious signals detected. We strongly advise against visiting this URL. Report it to your security team.'},
+    high:  {cls:'rec-high',  msg:'☠️ DANGER — This is very likely a phishing URL designed to steal your credentials or install malware. Do NOT open it. Close this link immediately and report it.'}
+  };
+  const rec = recMap[risk_level];
+  const rb = document.getElementById('rec-box');
+  rb.className = 'rec-box '+rec.cls;
+  rb.textContent = rec.msg;
+  /* Show */
+  document.getElementById('results').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+function setStat(id,val,level){
+  const el = document.getElementById(id);
+  const colMap={safe:'col-safe',warn:'col-warn',danger:'col-danger'};
+  el.textContent = val;
+  el.className = 'stat-num '+(colMap[level]||'col-norm');
+}
+function shake(el){
+  el.animate([
+    {transform:'translateX(0)'},{transform:'translateX(-8px)'},
+    {transform:'translateX(8px)'},{transform:'translateX(-4px)'},
+    {transform:'translateX(0)'}
+  ],{duration:380,easing:'ease'});
+}
+function toast(msg, type='info'){
+  const old = document.querySelector('.toast');
+  if(old) old.remove();
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ t.classList.add('show'); }); });
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),300); },4500);
+}
+function esc(str){
+  const d=document.createElement('div');d.textContent=str;return d.innerHTML;
+}
+</script>
+</body>
+</html>
